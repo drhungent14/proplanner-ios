@@ -39,6 +39,7 @@ export type NavTab =
 interface LayoutShellProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
+  onOpenMobilePreview?: () => void;
   children: React.ReactNode;
 }
 
@@ -55,6 +56,7 @@ const NAV_ITEMS: { id: NavTab; label: string; shortLabel: string; icon: React.FC
 export const LayoutShell: React.FC<LayoutShellProps> = ({
   activeTab,
   onSelectTab,
+  onOpenMobilePreview,
   children,
 }) => {
   const {
@@ -377,11 +379,14 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({
 
             <button
               type="button"
-              onClick={() => onSelectTab('settings')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200/60 dark:border-indigo-800"
+              onClick={() =>
+                onOpenMobilePreview ? onOpenMobilePreview() : onSelectTab('settings')
+              }
+              title="Mở giao diện di động tối ưu cho iPhone 12 Pro Max"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200/60 dark:border-indigo-800 transition"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>App iPhone</span>
+              <span>App iPhone 12 Pro Max</span>
             </button>
           </div>
         </header>
