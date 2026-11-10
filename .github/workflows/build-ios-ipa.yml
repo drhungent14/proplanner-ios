@@ -1,0 +1,90 @@
+name: Build ProPlanner iOS (.ipa)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    name: Biên dịch & Đóng gói ProPlanner.ipa (macOS Xcode)
+    runs-on: macos-latest
+
+    env:
+      VITE_SUPABASE_URL: https://dtyscysyqpnnatordxhn.supabase.co
+      VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0eXNjeXN5cXBubmF0b3JkeGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzMTE5ODAsImV4cCI6MjEwOTg4Nzk4MH0.AJlKgcW5S1c553Rjnqn3tFiYvCvOa30r8HFvyHpyiHE
+      VITE_SUPABASE_PROFILE_KEY: personal-main
+
+    steps:
+      - name: 1. Tải mã nguồn dự án
+        uses: actions/checkout@v4
+
+      - name: 2. Cài đặt Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 3. Cài đặt thư viện & gói Capacitor iOS + Local Notifications
+        run: |
+          rm -rf node_modules package-lock.json pnpm-lock.yaml
+          npm install --legacy-peer-deps
+          npm install --no-save @capacitor/ios@6.1.2 @capacitor/local-notifications@6.1.2
+
+      - name: 4. Build giao diện Web App (nhúng sẵn kết nối Supabase)
+        run: npm run build
+
+      - name: 5. Khởi tạo & Đồng bộ dự án Xcode iOS (Capacitor)
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+
+      - name: 6. Cấu hình Info.plist (Tên ứng dụng & Quyền thông báo nền iOS)
+        run: |
+          PLIST="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ProPlanner" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string ProPlanner" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string remote-notification" "$PLIST" || true
+
+      - name: 7. Biên dịch ứng dụng iOS bằng Xcode (Unsigned Release)
+        run: |
+          cd ios/App
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild -workspace App.xcworkspace \
+              -scheme App \
+              -sdk iphoneos \
+              -configuration Release \
+              -derivedDataPath build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              clean build
+          else
+            xcodebuild -project App.xcodeproj \
+              -scheme App \
+              -sdk iphoneos \
+              -configuration Release \
+              -derivedDataPath build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              clean build
+          fi
+
+      - name: 8. Đóng gói thành file ProPlanner.ipa chuẩn iOS
+        run: |
+          mkdir -p Payload
+          cp -r ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -r -9 ProPlanner.ipa Payload
+
+      - name: 9. Xuất file ProPlanner.ipa lên GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProPlanner-iOS-IPA
+          path: ProPlanner.ipa
+          if-no-files-found: error
+          retention-days: 90
